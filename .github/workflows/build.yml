@@ -8,97 +8,86 @@ on:
 
 jobs:
   build-apk:
-    name: Build APK with Buildozer
     runs-on: ubuntu-22.04
 
     steps:
 
-      - name: Checkout Repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.10
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: "temurin"
-          java-version: "17"
-
-      - name: Install System Dependencies
+      - name: Install Dependencies
         run: |
-          sudo apt-get update -qq
+          sudo apt-get update -y
           sudo apt-get install -y \
-            git zip unzip \
-            autoconf libtool pkg-config \
-            zlib1g-dev libncurses5-dev libncursesw5-dev \
-            cmake libffi-dev libssl-dev \
-            build-essential libltdl-dev \
-            python3-pip python3-dev \
-            ccache lld \
-            libgstreamer1.0-dev \
+            python3-pip \
+            build-essential \
+            git \
+            ffmpeg \
+            libsdl2-dev \
+            libsdl2-image-dev \
+            libsdl2-mixer-dev \
+            libsdl2-ttf-dev \
+            libportmidi-dev \
+            libswscale-dev \
+            libavformat-dev \
+            libavcodec-dev \
+            zlib1g-dev \
+            libgstreamer1.0 \
             gstreamer1.0-plugins-base \
-            libsdl2-dev libsdl2-image-dev \
-            libsdl2-mixer-dev libsdl2-ttf-dev \
+            gstreamer1.0-plugins-good \
+            libgstreamer-plugins-base1.0-dev \
+            zip \
+            unzip \
+            autoconf \
+            libtool \
+            pkg-config \
+            libncurses5-dev \
+            libncursesw5-dev \
+            cmake \
+            libffi-dev \
+            libssl-dev \
+            ccache \
+            lld \
+            openjdk-17-jdk \
             ant
 
-      - name: Install Python Build Tools
+      - name: Install Buildozer
         run: |
-          pip install --upgrade pip wheel
-          pip install --upgrade \
-            Cython==0.29.33 \
-            buildozer==1.5.0 \
-            virtualenv
+          pip install --upgrade pip
+          pip install Cython==0.29.33
+          pip install buildozer
 
-      - name: Cache Buildozer Global Dir
+      - name: Cache Buildozer
         uses: actions/cache@v4
         with:
-          path: ~/.buildozer
-          key: ${{ runner.os }}-buildozer-global-${{ hashFiles('buildozer.spec') }}
-          restore-keys: |
-            ${{ runner.os }}-buildozer-global-
+          path: |
+            ~/.buildozer
+            .buildozer
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+          restore-keys: buildozer-${{ runner.os }}-
 
-      - name: Cache Project .buildozer Dir
-        uses: actions/cache@v4
-        with:
-          path: .buildozer
-          key: ${{ runner.os }}-buildozer-project-${{ hashFiles('buildozer.spec') }}
-          restore-keys: |
-            ${{ runner.os }}-buildozer-project-
-
-      - name: Accept Android SDK Licenses
+      - name: Build APK
         run: |
-          mkdir -p ~/.android
-          touch ~/.android/repositories.cfg
-        continue-on-error: true
-
-      - name: Build Debug APK
-        env:
-          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-        run: |
-          yes | buildozer android debug 2>&1 | tee build.log
+          yes | buildozer -v android debug 2>&1 | tee build.log
         timeout-minutes: 60
 
-      - name: Show Build Log (last 200 lines)
-        if: always()
-        run: |
-          echo "=== LAST 200 LINES OF BUILD LOG ==="
-          tail -200 build.log || echo "No build.log found"
+      - name: Print full build log on failure
+        if: failure()
+        run: cat build.log
 
-      - name: List bin/ directory
+      - name: Find APK
         if: always()
-        run: |
-          echo "=== Contents of bin/ ==="
-          ls -lh bin/ || echo "bin/ directory not found or empty"
-          echo "=== All APK files found ==="
-          find . -name "*.apk" 2>/dev/null || echo "No APK files found"
+        run: find . -name "*.apk" -ls || echo "No APK found"
 
-      - name: Upload APK Artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: KhanzAcademy-Debug-APK
+          name: KhanzAcademy-APK
           path: bin/*.apk
           retention-days: 30
           if-no-files-found: error
